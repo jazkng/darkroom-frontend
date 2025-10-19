@@ -30,6 +30,8 @@ const API_BASE_URL = process.env.NODE_ENV === 'development'
   ? 'http://localhost:3001/api' 
   : 'https://darkroom-backend.onrender.com/api';
 
+const APP_VERSION = '0.0.1';
+
 const App = () => {
   const [view, setView] = useState<View>('generator');
   const [backendStatus, setBackendStatus] = useState({ connected: false, message: '正在连接后端...' });
@@ -95,6 +97,10 @@ const App = () => {
       <main className="main-content">
         {renderView()}
       </main>
+
+      <footer className="app-footer">
+        <p>版本号: {APP_VERSION}</p>
+      </footer>
     </div>
   );
 };
