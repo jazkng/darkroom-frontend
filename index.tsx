@@ -1,7 +1,5 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
-import { GoogleGenAI } from "@google/genai";
 import { marked } from 'marked';
 
 // --- Types ---
@@ -148,65 +146,25 @@ const GeneratorView = () => {
     setError('');
 
     try {
-        // FIX: The GoogleGenAI constructor requires an object with an apiKey property.
-        const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
+      const response = await fetch(`${API_BASE_URL}/generate-story`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          keywords,
+          characterUrl,
+        }),
+      });
+      
+      const data = await response.json();
 
-        const characterPrompt = characterUrl.trim()
-            ? `\n\n**重要角色参考**: 所有需要主角的场景，其角色形象必须严格参考这张图片：${characterUrl.trim()}`
-            : '';
-        
-        const fullPrompt = `
-你是一名专业恐怖短剧编剧，专门创作1分钟内的惊悚故事。
-你正在为一项名为《暗房》的短剧计划创作剧本。
-请根据输入的关键词，输出一份可直接用于短视频拍摄的、高度结构化的导演级脚本。
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || '从后端生成剧本失败。');
+      }
 
-输入格式：
-关键词：${keywords}${characterPrompt}
-
-输出格式请严格遵循以下模板（格式必须完整，使用Markdown）：
-
----
-🎬 **1. 标题（Title）**
-用一句话表达恐怖核心。
-
-🩸 **2. 故事摘要（Story Summary）**
-请提供一个更详细的故事摘要（100-150字），清晰地阐述故事的起因、经过和结局，帮助创作者完整把握故事脉络。
-
-💀 **3. 三幕剧结构（Three-Act Structure）**
-- **开端（Setup）**：交代角色与场景。
-- **冲突（Conflict）**：事件爆发或异常出现。
-- **反转结局（Twist）**：意料之外、但合理的恐怖结局。
-
-🎥 **4. 分镜脚本 (Scene by Scene)**
-请将故事拆分为独立的、带编号的场景（Scene 1, Scene 2...）。
-每个场景必须包含以下四个部分：
-- **地点 (Location):**
-- **时间 (Time):**
-- **镜头描述 (Shot Description):** 详细描述画面、角色动作、情绪和氛围。
-- **AI制作提示 (AI Production Prompt):** 根据镜头描述，生成一句简洁、视觉化的、可以直接输入给Kling AI等视频生成模型的制作指令。${characterUrl.trim() ? '如果场景中有主角，提示中必须包含参考角色图片的指令。' : ''}
-
-🗣 **5. 对白脚本（Dialogue）**
-若为独白，请标注【内心独白】。
-
-🌒 **6. 声音与画面氛围（Sound & Visuals）**
-- **音效建议 (Sound FX):**
-- **灯光与颜色 (Lighting):**
-- **摄影角度 (Camera Style):**
-
----
-注意事项：
-- 整体时长须控制在1分钟以内。
-- 风格：真实感 + 微诡异。
-- 输出时保持Markdown样式清晰。
-- 不要加入AI自我说明或系统注释。
-- **关键要求**：每个分镜脚本（Scene）都必须有自己独立的AI制作提示。
-`;
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: fullPrompt
-        });
-        const htmlContent = marked.parse(response.text);
-        setStory(htmlContent as string);
+      const htmlContent = marked.parse(data.story);
+      setStory(htmlContent as string);
 
     } catch (e: any) {
       setError(`生成失败: ${e.message}`);
