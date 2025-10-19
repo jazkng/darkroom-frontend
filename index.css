@@ -525,6 +525,99 @@ body {
     font-size: 1.1rem;
 }
 
+/* --- Content Calendar View --- */
+.calendar-view-container {
+    background-color: var(--background-color);
+    padding: 20px;
+    border-radius: 5px;
+    border: 1px solid var(--border-color);
+}
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+.calendar-header h2 {
+    color: var(--primary-color);
+    margin: 0;
+}
+.calendar-header button {
+    background: var(--surface-color-light);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    padding: 8px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+}
+.calendar-header button:hover {
+    background-color: #444;
+}
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+}
+.calendar-day {
+    background-color: var(--surface-color);
+    border-radius: 4px;
+    min-height: 120px;
+    padding: 8px;
+    border: 1px solid var(--border-color);
+    font-size: 0.9rem;
+}
+.calendar-day.other-month {
+    background-color: var(--background-color);
+    opacity: 0.5;
+}
+.calendar-day.today {
+    border: 2px solid var(--primary-color);
+}
+.day-header {
+    min-height: auto;
+    text-align: center;
+    font-weight: bold;
+    color: var(--text-color-secondary);
+    padding: 10px 0;
+}
+.day-number {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+.scheduled-items {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.scheduled-item {
+    background-color: var(--surface-color-light);
+    padding: 5px;
+    border-radius: 3px;
+    font-size: 0.8rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.platform-tags-mini {
+    display: flex;
+    gap: 3px;
+    flex-shrink: 0;
+}
+.platform-tag-mini {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+.platform-tag-mini.tiktok { background-color: #000; border: 1px solid #fff; }
+.platform-tag-mini.youtube { background-color: #FF0000; }
+.platform-tag-mini.xiaohongshu { background-color: #FF2442; }
+.platform-tag-mini.facebook { background-color: #1877F2; }
+
+
 /* --- App Footer --- */
 .app-footer {
   text-align: center;

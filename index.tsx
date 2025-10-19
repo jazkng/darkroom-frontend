@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { marked } from 'marked';
 
 // --- Types ---
-type View = 'generator' | 'distributor' | 'analytics';
+type View = 'generator' | 'distributor' | 'analytics' | 'calendar';
 type User = {
     username: string;
     connectedAccounts: Record<string, boolean>;
@@ -15,6 +15,12 @@ type Video = {
     platforms: string[];
     timestamp: string;
 };
+type ScheduledVideo = {
+    id: number;
+    title: string;
+    platforms: string[];
+    scheduledDate: string; // YYYY-MM-DD
+};
 type AnalyticsData = {
     totalViews: number;
     totalLikes: number;
@@ -23,12 +29,13 @@ type AnalyticsData = {
     platformPerformance: Record<string, number>;
 };
 
+
 // --- Configuration ---
 const API_BASE_URL = process.env.NODE_ENV === 'development' 
   ? 'http://localhost:3001/api' 
   : 'https://darkroom-backend.onrender.com/api';
 
-const APP_VERSION = '0.0.1';
+const APP_VERSION = '0.0.3';
 
 const App = () => {
   const [view, setView] = useState<View>('generator');
@@ -62,6 +69,8 @@ const App = () => {
         return <DistributorView user={user} setUser={setUser} />;
       case 'analytics':
         return user ? <AnalyticsView user={user} /> : <DistributorView user={user} setUser={setUser} />;
+      case 'calendar':
+        return user ? <ContentCalendarView user={user} /> : <DistributorView user={user} setUser={setUser} />;
       default:
         return <GeneratorView />;
     }
@@ -89,6 +98,7 @@ const App = () => {
       <div className="view-switcher">
         <button className={view === 'generator' ? 'active' : ''} onClick={() => setView('generator')}>剧本生成</button>
         <button className={view === 'distributor' ? 'active' : ''} onClick={() => setView('distributor')}>内容发布</button>
+        <button className={view === 'calendar' ? 'active' : ''} onClick={() => setView('calendar')}>内容日历</button>
         <button className={view === 'analytics' ? 'active' : ''} onClick={() => setView('analytics')}>数据分析</button>
       </div>
       
@@ -157,9 +167,22 @@ const GeneratorView = () => {
         }),
       });
       
+      const contentType = response.headers.get('content-type');
+        
+      if (!response.ok || !contentType || !contentType.includes('application/json')) {
+          const responseText = await response.text();
+          console.error('Backend error or invalid response:', responseText);
+          if (responseText.includes('is spinning up')) {
+               throw new Error('后端服务正在启动，请稍后重试。');
+          }
+          throw new Error(
+              `后端通信失败 (状态: ${response.status})。请检查后端服务是否正常运行。`
+          );
+      }
+      
       const data = await response.json();
 
-      if (!response.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.message || '从后端生成剧本失败。');
       }
 
@@ -457,6 +480,109 @@ const AnalyticsView = ({ user }: { user: User }) => {
         </div>
     );
 };
+
+// --- Content Calendar View ---
+const ContentCalendarView = ({ user }: { user: User }) => {
+    const [currentDate, setCurrentDate] = useState(new Date());
+    const [scheduledVideos, setScheduledVideos] = useState<ScheduledVideo[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    // MOCK DATA: In a real app, this would be fetched from the backend.
+    const MOCK_SCHEDULED_VIDEOS: ScheduledVideo[] = [
+      { id: 101, title: '镜中的倒影', platforms: ['tiktok', 'youtube'], scheduledDate: '2024-10-15' },
+      { id: 102, title: '阁楼里的脚步声', platforms: ['xiaohongshu'], scheduledDate: '2024-10-22' },
+      { id: 103, title: '不要回头看', platforms: ['youtube', 'facebook'], scheduledDate: '2024-10-22' },
+      { id: 104, title: '来自旧收音机的声音', platforms: ['tiktok'], scheduledDate: '2024-11-05' },
+      { id: 105, title: '鬼影实录', platforms: ['youtube'], scheduledDate: new Date().toISOString().slice(0, 10) },
+    ];
+
+    useEffect(() => {
+        const fetchScheduledVideos = async () => {
+            setLoading(true);
+            // In a real app:
+            // const response = await fetch(`${API_BASE_URL}/calendar/${user.username}?year=${...}&month=${...}`);
+            // For now, we filter the mock data.
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth() + 1;
+            const filtered = MOCK_SCHEDULED_VIDEOS.filter(v => {
+                const videoDate = new Date(v.scheduledDate);
+                return videoDate.getFullYear() === year && videoDate.getMonth() + 1 === month;
+            });
+            setScheduledVideos(filtered);
+            setLoading(false);
+        };
+        fetchScheduledVideos();
+    }, [currentDate, user.username]);
+
+    const handlePrevMonth = () => {
+        setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+    };
+
+    const handleNextMonth = () => {
+        setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+    };
+
+    const renderCalendarGrid = () => {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        const firstDayOfMonth = new Date(year, month, 1).getDay(); // 0=Sun, 1=Mon
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        
+        const dayCells = [];
+        const weekDays = ['一', '二', '三', '四', '五', '六', '日'];
+        
+        // Add weekday headers
+        for(let i = 0; i < 7; i++) {
+            dayCells.push(<div key={`header-${i}`} className="calendar-day day-header">{weekDays[i]}</div>)
+        }
+
+        // Add padding for days before the 1st of the month
+        const startDay = (firstDayOfMonth === 0) ? 6 : firstDayOfMonth - 1; // Adjust to Mon start
+        for (let i = 0; i < startDay; i++) {
+            dayCells.push(<div key={`pad-${i}`} className="calendar-day other-month"></div>);
+        }
+
+        // Add actual day cells
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const videosForDay = scheduledVideos.filter(v => v.scheduledDate === dateStr);
+            const isToday = new Date().toISOString().slice(0, 10) === dateStr;
+
+            dayCells.push(
+                <div key={day} className={`calendar-day ${isToday ? 'today' : ''}`}>
+                    <div className="day-number">{day}</div>
+                    <div className="scheduled-items">
+                        {videosForDay.map(video => (
+                            <div key={video.id} className="scheduled-item">
+                                <span className="scheduled-title">{video.title}</span>
+                                <div className="platform-tags-mini">
+                                    {video.platforms.map(p => <span key={p} className={`platform-tag-mini ${p}`}></span>)}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+        return dayCells;
+    };
+
+    return (
+        <div className="calendar-view-container view-container">
+             <div className="calendar-header">
+                <button onClick={handlePrevMonth}>&lt; 上一月</button>
+                <h2>{currentDate.getFullYear()}年 {currentDate.getMonth() + 1}月</h2>
+                <button onClick={handleNextMonth}>下一月 &gt;</button>
+            </div>
+            {loading ? <div className="loader" /> : (
+                <div className="calendar-grid">
+                    {renderCalendarGrid()}
+                </div>
+            )}
+        </div>
+    );
+};
+
 
 const root = ReactDOM.createRoot(document.getElementById('root')!);
 root.render(<App />);
