@@ -142,7 +142,8 @@ const GeneratorView = () => {
     setError('');
 
     try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        // FIX: The GoogleGenAI constructor requires an object with an apiKey property.
+        const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
 
         const characterPrompt = characterUrl.trim()
             ? `\n\n**重要角色参考**: 所有需要主角的场景，其角色形象必须严格参考这张图片：${characterUrl.trim()}`
