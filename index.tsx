@@ -117,6 +117,7 @@ const App = () => {
 const GeneratorView = () => {
   const [keywords, setKeywords] = useState('');
   const [characterUrl, setCharacterUrl] = useState('');
+  const [style, setStyle] = useState('');
   const [story, setStory] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -155,29 +156,50 @@ const GeneratorView = () => {
     setStory('');
     setError('');
 
+    const requestUrl = `${API_BASE_URL}/generate-story`;
+    const requestBody = {
+      keywords,
+      characterUrl,
+      style,
+    };
+
+    console.log('Attempting to generate story with:', { url: requestUrl, body: requestBody });
+
     try {
-      const response = await fetch(`${API_BASE_URL}/generate-story`, {
+      const response = await fetch(requestUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          keywords,
-          characterUrl,
-        }),
+        body: JSON.stringify(requestBody),
       });
       
-      const contentType = response.headers.get('content-type');
-        
-      if (!response.ok || !contentType || !contentType.includes('application/json')) {
-          const responseText = await response.text();
-          console.error('Backend error or invalid response:', responseText);
-          if (responseText.includes('is spinning up')) {
-               throw new Error('后端服务正在启动，请稍后重试。');
+      if (!response.ok) {
+          let errorMessage = `后端通信失败 (状态: ${response.status})。`;
+          if (response.status === 404) {
+              errorMessage = `生成失败：后端未找到对应的服务接口 (404 Not Found)。请确认后端路由 '/api/generate-story' 是否正确配置。`;
+          } else {
+              try {
+                  const errorText = await response.text(); // Read as text first
+                  if (errorText.includes('is spinning up')) {
+                      errorMessage = '后端服务正在启动，请稍后重试。';
+                  } else {
+                      // Try to parse as JSON, but fall back to text
+                      try {
+                          const errorData = JSON.parse(errorText);
+                          errorMessage += ` 错误信息: ${errorData.message || '未知错误'}`;
+                      } catch (jsonError) {
+                          if (errorText) {
+                              errorMessage += ` 原始响应: ${errorText}`;
+                          }
+                      }
+                  }
+              } catch (e) {
+                 // Error reading response body
+                 errorMessage += ' 无法读取错误响应。';
+              }
           }
-          throw new Error(
-              `后端通信失败 (状态: ${response.status})。请检查后端服务是否正常运行。`
-          );
+          throw new Error(errorMessage);
       }
       
       const data = await response.json();
@@ -190,11 +212,17 @@ const GeneratorView = () => {
       setStory(htmlContent as string);
 
     } catch (e: any) {
-      setError(`生成失败: ${e.message}`);
+      if (e instanceof TypeError && e.message === 'Failed to fetch') {
+          setError('网络错误：无法连接到后端服务。请检查网络连接和后端服务器状态。');
+      } else {
+          setError(e.message);
+      }
+      console.error("Generation failed:", e);
     } finally {
       setLoading(false);
     }
   };
+
 
   return (
     <div className="view-container">
@@ -212,6 +240,14 @@ const GeneratorView = () => {
                     onChange={(e) => setCharacterUrl(e.target.value)}
                     placeholder="（可选）输入角色参考图片URL"
                 />
+                <select value={style} onChange={(e) => setStyle(e.target.value)}>
+                    <option value="">-- 选择剧本风格 (默认) --</option>
+                    <option value="克苏鲁式恐怖">克苏鲁式恐怖 (Cthulhu/Lovecraftian)</option>
+                    <option value="心理惊悚">心理惊悚 (Psychological Thriller)</option>
+                    <option value="血腥虐杀">血腥虐杀 (Slasher/Gore)</option>
+                    <option value="伪纪录片风格">伪纪录片风格 (Found Footage)</option>
+                    <option value="怪谈/都市传说">怪谈/都市传说 (Creepypasta/Urban Legend)</option>
+                </select>
             </div>
             <button onClick={generateStory} disabled={loading}>
                 {loading ? '生成中...' : '生成剧本'}

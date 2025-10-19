@@ -180,7 +180,7 @@ body {
   }
 }
 
-.input-section input {
+.input-section input, .input-section select {
   padding: 12px;
   font-size: 1rem;
   background-color: var(--surface-color-light);
