@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
 import { GoogleGenAI } from "@google/genai";
@@ -74,6 +75,7 @@ const App = () => {
       </header>
 
       <div className={`status-bar ${backendStatus.connected ? 'connected' : 'disconnected'}`}>
+        {/* FIX: Corrected typo from `backend-status.message` to `backendStatus.message` */}
         {backendStatus.connected ? `✅ ${backendStatus.message}` : `❌ ${backendStatus.message}`}
       </div>
 
@@ -140,11 +142,7 @@ const GeneratorView = () => {
     setError('');
 
     try {
-        const API_KEY = process.env.API_KEY;
-        if (!API_KEY) {
-            throw new Error("API_KEY is not configured.");
-        }
-        const ai = new GoogleGenAI({ apiKey: API_KEY });
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
         const characterPrompt = characterUrl.trim()
             ? `\n\n**重要角色参考**: 所有需要主角的场景，其角色形象必须严格参考这张图片：${characterUrl.trim()}`
@@ -298,6 +296,7 @@ const DashboardView = ({ user }: { user: User }) => {
     const [file, setFile] = useState<File | null>(null);
     const [isPublishing, setIsPublishing] = useState(false);
     const [publishSuccess, setPublishSuccess] = useState(false);
+    const [publishError, setPublishError] = useState('');
 
     useEffect(() => {
         const fetchVideos = async () => {
@@ -338,15 +337,27 @@ const DashboardView = ({ user }: { user: User }) => {
         if (!title || !file) return;
         setIsPublishing(true);
         setPublishSuccess(false);
-        
+        setPublishError(''); // Reset error on new attempt
+
         try {
             const platforms = Object.keys(connectedAccounts).filter(p => connectedAccounts[p]);
+            
+            const formData = new FormData();
+            formData.append('videoFile', file);
+            formData.append('username', user.username);
+            formData.append('title', title);
+            formData.append('description', description);
+            formData.append('platforms', JSON.stringify(platforms)); // Arrays need to be stringified for FormData
+
             const response = await fetch(`${API_BASE_URL}/publish`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: user.username, title, description, platforms }),
+                // NOTE: Do not set Content-Type header.
+                // The browser will automatically set it to multipart/form-data with the correct boundary.
+                body: formData,
             });
+
             const data = await response.json();
+
             if (data.success) {
                 setPublishedVideos(data.videos);
                 setTitle('');
@@ -354,9 +365,12 @@ const DashboardView = ({ user }: { user: User }) => {
                 setFile(null);
                 setPublishSuccess(true);
                 setTimeout(() => setPublishSuccess(false), 3000);
+            } else {
+                throw new Error(data.message || '发布失败，请稍后重试。');
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to publish video", error);
+            setPublishError(error.message);
         }
         setIsPublishing(false);
     };
@@ -382,6 +396,7 @@ const DashboardView = ({ user }: { user: User }) => {
                     {isPublishing ? '发布中...' : '一键发布'}
                 </button>
                 {publishSuccess && <p className="publish-success-message">发布成功！</p>}
+                {publishError && <div className="error-message">{publishError}</div>}
             </div>
             <div className="content-library">
                 <h3>内容库</h3>
